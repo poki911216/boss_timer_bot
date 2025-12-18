@@ -1,23 +1,41 @@
+import os
+import threading
+import asyncio
+from datetime import datetime, timedelta
+
 import discord
 from discord.ext import commands
 from discord.ui import View, Button, Select
-import asyncio
-from datetime import datetime, timedelta
+from flask import Flask
+
+# ================== Flask Web Server ==================
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Discord Bot is running!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+# ================== Discord Bot ==================
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(
     command_prefix='!',
     intents=intents,
-    reconnect=True  # ⭐ 自動重連
+    reconnect=True
 )
+
 @bot.event
 async def on_ready():
     print(f"✅ Bot 已上線：{bot.user}")
+
 @bot.event
 async def on_command_error(ctx, error):
     print(f"❌ 指令錯誤：{error}")
-
 
 ROLE_ID = 1450513362545803265  # ← 換成你的提醒身分組 ID
 
@@ -80,9 +98,15 @@ class BossButton(Button):
 
 
 async def countdown(area, end, channel):
-    await asyncio.sleep((end - datetime.now()).total_seconds())
+    delay = (end - datetime.now()).total_seconds()
+    if delay > 0:
+        await asyncio.sleep(delay)
+
     role = channel.guild.get_role(ROLE_ID)
-    await channel.send(f"🔔 **{area} Boss 已重生！** {role.mention}")
+    if role:
+        await channel.send(f"🔔 **{area} Boss 已重生！** {role.mention}")
+    else:
+        await channel.send(f"🔔 **{area} Boss 已重生！**")
 
 
 class ControlView(View):
@@ -103,10 +127,10 @@ async def reset(ctx):
     timers.clear()
     await ctx.send("♻ **所有 Boss 計時已重置**")
 
-import os
 
-TOKEN = os.getenv("DISCORD_TOKEN")
-
-bot.run(TOKEN)
-
+# ================== Start Both ==================
+if __name__ == "__main__":
+    threading.Thread(target=run_web).start()
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    bot.run(TOKEN)
 
